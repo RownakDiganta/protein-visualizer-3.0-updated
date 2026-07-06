@@ -1,0 +1,30 @@
+# azure-pipelines.yml
+# Azure DevOps CI pipeline: on push to master, installs Node deps, runs `npm run build`,
+# and publishes the resulting build/ folder as a pipeline artifact.
+# Node.js with React
+# Build a Node.js project that uses React.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '10.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install
+    npm run build
+  displayName: 'npm install and build'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: 'build'
+    ArtifactName: 'drop'
+    publishLocation: 'Container'

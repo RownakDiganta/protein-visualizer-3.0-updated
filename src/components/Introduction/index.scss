@@ -1,0 +1,31 @@
+// src/components/Introduction/index.scss
+// Layout/sizing styles for the Introduction card (logo, body width, bullet list).
+.introduction {
+  &--logo {
+    margin-top: 20px;
+    width: 800px;
+  }
+
+  &--wrapper {
+    margin-top: 30px;
+  }
+
+  &--body {
+    width: 800px;
+  }
+
+  &--title {
+    margin-bottom: 10px;
+  }
+
+  &--bullet {
+    width: fit-content;
+  }
+  &--ul {
+    padding: 0;
+    margin-left: 10px
+  }
+}
+.MuiCardMedia-img {
+  object-fit: fill;
+}

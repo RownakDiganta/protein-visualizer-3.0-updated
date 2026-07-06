@@ -1,0 +1,13 @@
+// src/components/AppBar/index.scss
+// Styling overrides for the Material-UI AppBar: brand color and the wider slider menu/item.
+.MuiAppBar-colorPrimary {
+  background-color: #cb2d39;
+}
+
+.wide-menu {
+  min-width: 400px;
+}
+
+.menuItem--large {
+  min-height: 100px;
+}

@@ -1,0 +1,68 @@
+{
+  "extends": ["airbnb", "prettier", "plugin:node/recommended", "plugin:prettier/recommended"],
+  "plugins": ["prettier"],
+  "rules": {
+    "prettier/prettier": ["warn",
+      {
+        "endOfLine": "auto",
+        "semi": true,
+        "trailingComma": "none"
+      }
+    ],
+    "no-unused-vars": "warn",
+    "func-names": "off",
+    "no-process-exit": "off",
+    "no-undef": "warn",
+    "object-shorthand": "off",
+    "dot-notation": "off",
+    "prefer-template": "off",
+    "prefer-const": "off",
+    "spaced-comment": "off",
+    "vars-on-top": "off",
+    "no-var": "warn",
+    "no-lonely-if": "off",
+    "new-cap": "off",
+    "no-plusplus": "off",
+    "no-restricted-syntax": "off",
+    "camelcase": "off",
+    "no-shadow": "warn",
+    "eqeqeq": "warn",
+    "react/self-closing-comp": "warn",
+    "react/function-component-definition": "warn",
+    "react/prop-types": "off",
+    "react/destructuring-assignment": ["warn", "always", {
+      "ignoreClassFields": true
+    }],
+    "import/no-extraneous-dependencies": "warn",
+    "node/no-unsupported-features/es-syntax": [
+      "off",
+      {
+        "version": ">=8.0.0",
+        "ignores": []
+      }
+    ],
+    "react/jsx-filename-extension": [1, { "extensions": [".js", ".jsx"] }],
+    "node/no-missing-import": [
+      "error",
+      {
+        "allowModules": [],
+        "resolvePaths": ["/path/to/a/modules/directory"],
+        "tryExtensions": [".js", ".json", ".node", ".jsx"]
+      }
+    ],
+    "prefer-destructuring": [
+      "warn",
+      {
+        "array": true,
+        "object": true
+      },
+      {
+        "enforceForRenamedProperties": false
+      }
+    ]
+  },
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaVersion": 10
+  }
+}

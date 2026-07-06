@@ -1,0 +1,4 @@
+# public/robots.txt
+# Default crawler policy: allows all user agents, no disallow rules set.
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *

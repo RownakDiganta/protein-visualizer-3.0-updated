@@ -1,0 +1,135 @@
+// src/components/Legend/index.scss
+// Fixed-position styling for the left/right legend panels, including the
+// hover-to-reveal transparency effect and visibility-toggle button colors.
+.legend {
+  &--wrapper {
+    position: fixed;
+    top: 150px;
+    left: 10px;
+    width: 250px;
+    background-color: #f8f8ff;
+  }
+
+  &--wrapperTransparent {
+    position: fixed;
+    top: 150px;
+    left: 10px;
+    width: 250px;
+    background-color: #f8f8ff;
+    opacity: 0.2;
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &--wrapperRight {
+    position: fixed;
+    top: 150px;
+    right: 10px;
+    // #RD OLD CODE
+    // width: 250px;
+    // #RD END OLD CODE
+    // #RD START
+    width: 300px;
+    // #RD END
+    background-color: #f8f8ff;
+  }
+
+  &--wrapperRightTransparent {
+    position: fixed;
+    top: 150px;
+    right: 10px;
+    // #RD OLD CODE
+    // width: 250px;
+    // #RD END OLD CODE
+    // #RD START
+    width: 300px;
+    // #RD END
+    background-color: #f8f8ff;
+    opacity: 0.2;
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  &--menuItem {
+    display: flex;
+    margin-top: -23px;
+    margin-bottom: -23px;
+  }
+
+  &--menuSymbol {
+    display: flex;
+  }
+
+  &--header {
+    display: flex;
+    width: max-content;
+    margin-bottom: -15px;
+    margin-top: -15px;
+  }
+
+  // #RD START
+  // Dedicated container for the amino-acid picker: unlike --menuItem (which uses
+  // negative top/bottom margins to keep single-line rows tight), this section wraps
+  // onto several lines, so it needs normal positive spacing to avoid squashing into
+  // the items above/below it.
+  &--aminoAcidSection {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    // Both neighbors are --menuItem rows, which use -23px margins to keep their own
+    // single-line siblings tight. Since this section wraps onto multiple lines,
+    // its margins need to more than offset that -23px or it overlaps the row above
+    // (Free Cysteine) and the row below (Protein Length).
+    margin-top: 34px;
+    margin-bottom: 34px;
+  }
+
+  &--aminoAcidGrid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    row-gap: 8px;
+    margin-top: 6px;
+    margin-bottom: 10px;
+    max-width: 260px;
+  }
+  // #RD END
+}
+
+// #RD START
+.legend--aminoAcidChip {
+  font-size: 11px;
+  margin: 0;
+}
+// #RD END
+
+.button-visibility--off {
+  position: relative;
+  bottom: 11px;
+  left: 10px;
+  .MuiIconButton-root {
+    color: #cb2d39;
+  }
+}
+
+.button-visibility--on {
+  position: relative;
+  bottom: 11px;
+  left: 10px;
+  .MuiIconButton-root {
+    color: #004d00;
+  }
+}
+
+.bold-text {
+  font-weight: bold;
+  margin-left: 7px;
+}
+
+.symbol {
+  display: inline;
+  position: relative;
+  left: 10px;
+}

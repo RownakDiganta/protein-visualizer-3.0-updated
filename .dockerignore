@@ -1,0 +1,4 @@
+# .dockerignore
+# Excludes node_modules and npm debug logs from the Docker build context.
+node_modules
+npm-debug.log

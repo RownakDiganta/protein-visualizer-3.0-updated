@@ -1,0 +1,93 @@
+// src/components/ProteinSearchBar/index.scss
+// Sizing styles for the protein accession-number search form.
+.search-bar{
+    min-width: 300px;
+    width: 15vw;
+}
+
+// #RD OLD CODE
+// .search-form {
+//   display: flex;
+//   flex-direction: column;
+// }
+//
+// .search-form__label {
+//   margin-bottom: 6px;
+//   font-size: 0.9rem;
+//   color: #555;
+//   text-align: left;
+// }
+// #RD END OLD CODE
+
+// #RD START
+// Static label sits above the OutlinedInput instead of MUI's floating InputLabel,
+// which kept overlapping the box/typed value in both empty and filled states.
+// Centered, two-line, and paired with focus/placeholder styling for a more
+// polished look.
+.search-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// #RD OLD CODE
+// .search-form__label {
+//   text-align: center;
+//   line-height: 1.1;
+//   margin-bottom: 8px;
+//   font-size: 1rem;
+//   font-weight: 500;
+//   color: #555;
+// }
+// #RD END OLD CODE
+
+// #RD START
+.search-form__label {
+  text-align: center;
+  line-height: 1.1;
+  margin-bottom: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  // Normal (unfocused) state: dark gray/black.
+  color: #222222;
+  // The label now sits after OutlinedInput in the DOM (see index.js) so the
+  // .Mui-focused sibling selector below can target it; `order: -1` restores its
+  // visual position above the input without changing the actual layout.
+  order: -1;
+  transition: color 0.25s ease, text-shadow 0.25s ease;
+}
+// #RD END
+
+.search-form .MuiOutlinedInput-root {
+  background-color: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-form .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #3f51ff;
+  border-width: 2px;
+  box-shadow: 0 0 8px rgba(63, 81, 255, 0.35),
+              0 0 14px rgba(255, 255, 255, 0.9);
+}
+
+.search-form .MuiOutlinedInput-input {
+  color: #000000;
+}
+
+.search-form .MuiOutlinedInput-input::placeholder {
+  color: #999999;
+  opacity: 1;
+}
+
+// #RD START
+// Pure-CSS focus glow: while OutlinedInput carries MUI's Mui-focused class, style
+// its later sibling (the label) to match the input border's blue glow. No JS
+// focus-state tracking needed since ~ picks this up automatically on focus/blur.
+.search-form .MuiOutlinedInput-root.Mui-focused ~ .search-form__label {
+  color: #3f51ff;
+  font-weight: 600;
+  text-shadow:
+    0 0 4px rgba(63, 81, 255, 0.35),
+    0 0 8px rgba(63, 81, 255, 0.25);
+}
+// #RD END
