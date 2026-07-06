@@ -30,6 +30,10 @@ jobs:
       - run: npm run build
         env:
           CI: false
+          # react-scripts 3.4.4 (webpack 4) crashes on Node 17+ with
+          # "error:0308010C:digital envelope routines::unsupported" because of
+          # OpenSSL 3.0's removal of legacy MD4 hashing. Same fix used locally.
+          NODE_OPTIONS: --openssl-legacy-provider
 
       - uses: actions/upload-pages-artifact@v3
         with:
