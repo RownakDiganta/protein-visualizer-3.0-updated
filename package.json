@@ -2,7 +2,7 @@
   "name": "protein-visualizer",
   "version": "0.3.0",
   "private": true,
-  "homepage": "http://murphv.github.io/Protein-Visualizer-3.0",
+  "homepage": "https://rownakdiganta.github.io/protein-visualizer-3.0-updated",
   "dependencies": {
     "@material-ui/core": "^4.12.4",
     "@material-ui/icons": "^4.11.3",
