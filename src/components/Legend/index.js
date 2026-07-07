@@ -865,7 +865,23 @@ function Legend(props) {
           Free Amino Acids (choose up to {MAX_SELECTED_AMINO_ACIDS}):
         </Typography>
         <div className="legend--aminoAcidGrid">
+          {/* #RD OLD CODE
           {AMINO_ACIDS.map((aminoAcid) => {
+          #RD END OLD CODE */}
+          {/* #RD START */}
+          {/* Sort by free-count (desc) instead of AMINO_ACIDS' fixed alphabetical
+              order, so the most common free residues in this protein show first.
+              AMINO_ACIDS itself is left untouched (other code keys off it), this is
+              only a display-order copy built from the counts buildAminoAcids()
+              already computed in App.jsx. */}
+          {[...AMINO_ACIDS]
+            .sort((a, b) => {
+              const countA = aminoAcids[a] ? aminoAcids[a].free.length : 0;
+              const countB = aminoAcids[b] ? aminoAcids[b].free.length : 0;
+              return countB - countA;
+            })
+            .map((aminoAcid) => {
+            // #RD END
             const isSelected = selectedAminoAcids.includes(aminoAcid);
             const count =
               aminoAcids[aminoAcid] ? aminoAcids[aminoAcid].free.length : 0;

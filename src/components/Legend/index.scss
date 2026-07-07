@@ -24,27 +24,32 @@
 
   &--wrapperRight {
     position: fixed;
-    top: 150px;
-    right: 10px;
     // #RD OLD CODE
+    // top: 150px;
     // width: 250px;
     // #RD END OLD CODE
     // #RD START
+    // Shifted up ~1cm (150px - 38px) so the amino-acid chip grid has room to wrap
+    // to extra rows without pushing "Protein Length"/"Species" off the bottom of
+    // the viewport - this panel has no scroll/max-height, so it just grows downward.
+    top: 112px;
     width: 300px;
     // #RD END
+    right: 10px;
     background-color: #f8f8ff;
   }
 
   &--wrapperRightTransparent {
     position: fixed;
-    top: 150px;
-    right: 10px;
     // #RD OLD CODE
+    // top: 150px;
     // width: 250px;
     // #RD END OLD CODE
     // #RD START
+    top: 112px;
     width: 300px;
     // #RD END
+    right: 10px;
     background-color: #f8f8ff;
     opacity: 0.2;
     &:hover {
