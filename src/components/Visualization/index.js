@@ -18,7 +18,8 @@ const { COLOR_PALLETE } = constants;
 const {
   AMINO_ACID_RENDER_STYLE,
   DEFAULT_AMINO_ACID_RENDER_STYLE,
-  MAX_SELECTED_AMINO_ACIDS
+  MAX_SELECTED_AMINO_ACIDS,
+  SELECTED_AMINO_ACID_COLORS
 } = constants;
 // #RD END
 
@@ -1009,11 +1010,21 @@ function Visualization(props) {
   // don't all stack their labels on the exact same line - previously every 'solid'
   // letter (and every 'white' letter) rendered at an identical y, which is what
   // caused heavy overlap near the C-terminus once multiple letters were selected.
-  const AMINO_ACID_LANE_SPACING = 16;
+  // #RD OLD CODE
+  // const AMINO_ACID_LANE_SPACING = 16;
+  // #RD END OLD CODE
+  // 16px wasn't enough separation to keep neighboring lanes' labels/leader lines
+  // from overlapping when residues landed close together; widened per feedback.
+  const AMINO_ACID_LANE_SPACING = 22;
   // Minimum horizontal pixel gap required between two consecutive labels of the same
   // amino acid before the later one's text is hidden; the atom marker itself is
   // still always drawn, so no position is silently dropped from the visualization.
-  const AMINO_ACID_LABEL_MIN_GAP = 14;
+  // #RD OLD CODE
+  // const AMINO_ACID_LABEL_MIN_GAP = 14;
+  // #RD END OLD CODE
+  // Bumped slightly alongside the larger lane spacing so same-letter decluttering
+  // stays visually proportionate to the wider lanes.
+  const AMINO_ACID_LABEL_MIN_GAP = 18;
 
   const attachFreeAmAcids = (
     g,
@@ -1022,7 +1033,13 @@ function Visualization(props) {
     symAmAcids,
     visualize,
     text_distance = 0,
-    laneOffset = 0
+    laneOffset = 0,
+    // #RD START
+    // Per-selection-slot color (see SELECTED_AMINO_ACID_COLORS) so each of the up
+    // to 4 chosen amino acids is visually distinguishable; falls back to black so
+    // any caller that doesn't pass one still renders as before.
+    color = null
+    // #RD END
   ) => {
     console.log(`Visualization -> attach Free ${symAmAcids}`);
     let seq = freeAmAcids.map((el) => parseInt(el, 10));
@@ -1057,7 +1074,12 @@ function Visualization(props) {
           .attr('y1', SULFIDE_POS - 20)
           .attr('x2', seqPos)
           .attr('y2', SULFIDE_POS - 50 - laneShift)
-          .style('stroke', 'black');
+          // #RD OLD CODE
+          // .style('stroke', 'black');
+          // #RD END OLD CODE
+          // #RD START
+          .style('stroke', color || 'black');
+          // #RD END
 
         if (showLabel) {
           const label = g.append('text');
@@ -1065,14 +1087,20 @@ function Visualization(props) {
             .attr('dx', seqPos - 4)
             .attr('dy', SULFIDE_POS - 60 - laneShift)
             .text(() => `${symAmAcids}`)
-            .attr('class', 'sulfide-labels');
+            .attr('class', 'sulfide-labels')
+            // #RD START
+            .style('fill', color || 'black');
+            // #RD END
 
           const pos = g.append('text');
           pos
             .attr('dx', seqPos + 4 + text_distance)
             .attr('dy', SULFIDE_POS - 55 - laneShift)
             .text(() => `${el}`)
-            .attr('class', 'sulfide-labels--pos');
+            .attr('class', 'sulfide-labels--pos')
+            // #RD START
+            .style('fill', color || 'black');
+            // #RD END
         }
 
         const atom = g.append('circle');
@@ -1081,7 +1109,15 @@ function Visualization(props) {
           .attr('cy', SULFIDE_POS)
           .attr('r', CIRCLE_RADIUS - 2)
           .style('stroke', 'white')
-          .style('fill', 'black');
+          // #RD OLD CODE
+          // .style('fill', 'black');
+          // #RD END OLD CODE
+          // #RD START
+          // 'solid' marker stays solid (filled circle, white stroke) - only the
+          // fill color changes per amino-acid slot, preserving the
+          // solid-vs-hollow shape distinction from AMINO_ACID_RENDER_STYLE.
+          .style('fill', color || 'black');
+          // #RD END
       });
     } else {
       seq.forEach((el) => {
@@ -1105,7 +1141,12 @@ function Visualization(props) {
           .attr('y1', SULFIDE_POS + 20)
           .attr('x2', seqPos)
           .attr('y2', SULFIDE_POS + 50 + laneShift)
-          .style('stroke', 'black');
+          // #RD OLD CODE
+          // .style('stroke', 'black');
+          // #RD END OLD CODE
+          // #RD START
+          .style('stroke', color || 'black');
+          // #RD END
 
         if (showLabel) {
           const label = g.append('text');
@@ -1113,14 +1154,20 @@ function Visualization(props) {
             .attr('dx', seqPos - 4)
             .attr('dy', SULFIDE_POS + 60 + laneShift)
             .text(() => `${symAmAcids}`)
-            .attr('class', 'sulfide-labels');
+            .attr('class', 'sulfide-labels')
+            // #RD START
+            .style('fill', color || 'black');
+            // #RD END
 
           const pos = g.append('text');
           pos
             .attr('dx', seqPos + 6 + text_distance)
             .attr('dy', SULFIDE_POS + 65 + laneShift)
             .text(() => `${el}`)
-            .attr('class', 'sulfide-labels--pos');
+            .attr('class', 'sulfide-labels--pos')
+            // #RD START
+            .style('fill', color || 'black');
+            // #RD END
         }
 
         const atom = g.append('circle');
@@ -1128,7 +1175,15 @@ function Visualization(props) {
           .attr('cx', seqPos)
           .attr('cy', SULFIDE_POS)
           .attr('r', CIRCLE_RADIUS - 2)
-          .style('stroke', 'black')
+          // #RD OLD CODE
+          // .style('stroke', 'black')
+          // #RD END OLD CODE
+          // #RD START
+          // 'white'/hollow marker stays hollow (white fill) - only the ring
+          // (stroke) color changes per amino-acid slot, preserving the
+          // solid-vs-hollow shape distinction from AMINO_ACID_RENDER_STYLE.
+          .style('stroke', color || 'black')
+          // #RD END
           .style('fill', 'white');
       });
     }
@@ -1275,6 +1330,16 @@ function Visualization(props) {
       const freePositions = aminoAcids[aminoAcid]
         ? aminoAcids[aminoAcid].free
         : [];
+      // #RD START
+      // Stable color by selection slot (1st/2nd/3rd/4th chosen letter), not by
+      // letter identity, so re-selecting the same amino acid keeps the same color
+      // as long as it stays in the same slot; modulo guards against running out of
+      // colors if MAX_SELECTED_AMINO_ACIDS is ever raised above the palette length.
+      const aminoAcidColor =
+        SELECTED_AMINO_ACID_COLORS[
+          aminoAcidLane % SELECTED_AMINO_ACID_COLORS.length
+        ];
+      // #RD END
       attachFreeAmAcids(
         g,
         isWindowView,
@@ -1282,7 +1347,10 @@ function Visualization(props) {
         aminoAcid,
         style.visualize,
         style.textDistance,
-        aminoAcidLane
+        aminoAcidLane,
+        // #RD START
+        aminoAcidColor
+        // #RD END
       );
     });
     // #RD END

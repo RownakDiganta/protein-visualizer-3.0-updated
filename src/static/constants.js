@@ -69,6 +69,19 @@ const AMINO_ACID_RENDER_STYLE = {
 const DEFAULT_AMINO_ACID_RENDER_STYLE = { visualize: 'solid', textDistance: 0 };
 // #RD END
 
+// #RD START
+// Stable per-selection-slot colors (Okabe-Ito colorblind-friendly palette) so the
+// 1st/2nd/3rd/4th selected amino acid each get a distinct, readable connector-line/
+// marker/label color. Shared between Visualization (rendering) and Legend
+// (chip color-dot), indexed by the amino acid's position in selectedAminoAcids.
+const SELECTED_AMINO_ACID_COLORS = [
+  '#0072B2',
+  '#D55E00',
+  '#009E73',
+  '#CC79A7'
+];
+// #RD END
+
 export default {
   initialOptions,
   COLOR_PALLETE,
@@ -76,6 +89,7 @@ export default {
   AMINO_ACIDS,
   MAX_SELECTED_AMINO_ACIDS,
   AMINO_ACID_RENDER_STYLE,
-  DEFAULT_AMINO_ACID_RENDER_STYLE
+  DEFAULT_AMINO_ACID_RENDER_STYLE,
+  SELECTED_AMINO_ACID_COLORS
   // #RD END
 };

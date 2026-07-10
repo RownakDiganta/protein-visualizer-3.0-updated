@@ -31,8 +31,19 @@ const {
   AMINO_ACIDS,
   MAX_SELECTED_AMINO_ACIDS,
   AMINO_ACID_RENDER_STYLE,
-  DEFAULT_AMINO_ACID_RENDER_STYLE
+  DEFAULT_AMINO_ACID_RENDER_STYLE,
+  SELECTED_AMINO_ACID_COLORS
 } = constants;
+
+// Slightly darker variant of a slot color, used for the selected chip's border so
+// it reads as a border against the same color's solid background fill.
+const darkenColor = (hex, amount = 0.2) => {
+  const num = parseInt(hex.slice(1), 16);
+  const r = Math.floor(((num >> 16) & 0xff) * (1 - amount));
+  const g = Math.floor(((num >> 8) & 0xff) * (1 - amount));
+  const b = Math.floor((num & 0xff) * (1 - amount));
+  return `rgb(${r}, ${g}, ${b})`;
+};
 // #RD END
 
 // const theme = createMuiTheme({
@@ -888,6 +899,17 @@ function Legend(props) {
             const isDisabled =
               !isSelected &&
               selectedAminoAcids.length >= MAX_SELECTED_AMINO_ACIDS;
+            // #RD START
+            // Same slot-color assignment used by Visualization's connector lines,
+            // so the chip visually ties back to its line/marker on the protein.
+            const slotIndex = selectedAminoAcids.indexOf(aminoAcid);
+            const chipColor =
+              isSelected && slotIndex !== -1
+                ? SELECTED_AMINO_ACID_COLORS[
+                    slotIndex % SELECTED_AMINO_ACID_COLORS.length
+                  ]
+                : null;
+            // #RD END
             return (
               <Chip
                 key={aminoAcid}
@@ -895,10 +917,37 @@ function Legend(props) {
                 size="small"
                 clickable
                 disabled={isDisabled}
-                color={isSelected ? 'primary' : 'default'}
+                // #RD OLD CODE
+                // color={isSelected ? 'primary' : 'default'}
+                // #RD END OLD CODE
+                // #RD START
+                // color="primary" (generic MUI blue) made every selected chip look
+                // the same; the slot color is now applied directly below instead,
+                // so unselected chips stay on the neutral 'default' MUI color.
+                color="default"
+                // #RD END
                 variant={isSelected ? 'default' : 'outlined'}
                 onClick={() => toggleAminoAcid(aminoAcid)}
                 className="legend--aminoAcidChip"
+                // #RD OLD CODE
+                // style={chipColor ? { borderLeft: `4px solid ${chipColor}` } : undefined}
+                // #RD END OLD CODE
+                // #RD START
+                // Full slot-color styling instead of just a left-border accent, so
+                // the chip itself reads as the same color as its connector line.
+                style={
+                  chipColor
+                    ? {
+                        backgroundColor: chipColor,
+                        color: '#ffffff',
+                        // MUI's filled Chip has no border by default (border-style:
+                        // none), so the shorthand is needed - `borderColor` alone
+                        // would have no visible effect.
+                        border: `1px solid ${darkenColor(chipColor)}`
+                      }
+                    : undefined
+                }
+                // #RD END
               />
             );
           })}

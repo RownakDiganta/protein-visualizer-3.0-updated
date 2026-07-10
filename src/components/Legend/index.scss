@@ -4,7 +4,14 @@
 .legend {
   &--wrapper {
     position: fixed;
-    top: 150px;
+    // #RD OLD CODE
+    // top: 150px;
+    // #RD END OLD CODE
+    // #RD START
+    // Shifted up ~1cm (150px - 38px), matching --wrapperRight, per professor
+    // feedback that the left legend also sits too low on some screen sizes.
+    top: 112px;
+    // #RD END
     left: 10px;
     width: 250px;
     background-color: #f8f8ff;
@@ -12,7 +19,12 @@
 
   &--wrapperTransparent {
     position: fixed;
-    top: 150px;
+    // #RD OLD CODE
+    // top: 150px;
+    // #RD END OLD CODE
+    // #RD START
+    top: 112px;
+    // #RD END
     left: 10px;
     width: 250px;
     background-color: #f8f8ff;
@@ -107,6 +119,16 @@
 .legend--aminoAcidChip {
   font-size: 11px;
   margin: 0;
+}
+
+// #RD START
+// Selected chips get their slot color via inline style (see Legend/index.js).
+// MUI's own clickable-chip hover effect changes background-color to a fixed grey
+// tint that would otherwise flash over/replace that custom color on hover; using
+// opacity instead keeps the assigned color visible while still giving hover
+// feedback.
+.legend--aminoAcidChip:hover {
+  opacity: 0.85;
 }
 // #RD END
 
