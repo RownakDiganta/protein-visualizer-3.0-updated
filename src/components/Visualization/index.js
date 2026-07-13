@@ -1061,12 +1061,29 @@ function Visualization(props) {
           ? WINDOW_SPINE_START_POS + windowProportion * WINDOW_SPINE_WIDTH
           : SPINE_START_POS + seqProportion * SPINE_WIDTH;
 
-        const showLabel =
-          lastLabelPos === null ||
-          Math.abs(seqPos - lastLabelPos) >= AMINO_ACID_LABEL_MIN_GAP;
-        if (showLabel) {
-          lastLabelPos = seqPos;
-        }
+        // #RD OLD CODE
+        // const showLabel =
+        //   lastLabelPos === null ||
+        //   Math.abs(seqPos - lastLabelPos) >= AMINO_ACID_LABEL_MIN_GAP;
+        // if (showLabel) {
+        //   lastLabelPos = seqPos;
+        // }
+        // #RD END OLD CODE
+        // #RD START
+        // Bug: the amino-acid LETTER was gated behind the same "too close to the
+        // previous one" check as the position NUMBER, so when two same-letter
+        // residues landed within AMINO_ACID_LABEL_MIN_GAP px, the letter was
+        // dropped entirely even though its connector line/marker (below, outside
+        // this check) were always drawn - e.g. Q9H5I5's second W at position 137.
+        // Fix: the letter is now always drawn; only the position number is
+        // suppressed when crowded, and the letter gets a small extra offset
+        // instead so it doesn't sit exactly on top of the previous one.
+        const isCrowded =
+          lastLabelPos !== null &&
+          Math.abs(seqPos - lastLabelPos) < AMINO_ACID_LABEL_MIN_GAP;
+        lastLabelPos = seqPos;
+        const letterStagger = isCrowded ? 8 : 0;
+        // #RD END
 
         const bond = g.append('line');
         bond
@@ -1081,26 +1098,30 @@ function Visualization(props) {
           .style('stroke', color || 'black');
           // #RD END
 
-        if (showLabel) {
+        {
+          // #RD OLD CODE
+          // if (showLabel) {
+          // #RD END OLD CODE
+          // #RD START
+          // Letter is unconditional now - always rendered alongside its line/marker.
           const label = g.append('text');
           label
             .attr('dx', seqPos - 4)
-            .attr('dy', SULFIDE_POS - 60 - laneShift)
+            .attr('dy', SULFIDE_POS - 60 - laneShift - letterStagger)
             .text(() => `${symAmAcids}`)
             .attr('class', 'sulfide-labels')
-            // #RD START
             .style('fill', color || 'black');
-            // #RD END
+          // #RD END
 
-          const pos = g.append('text');
-          pos
-            .attr('dx', seqPos + 4 + text_distance)
-            .attr('dy', SULFIDE_POS - 55 - laneShift)
-            .text(() => `${el}`)
-            .attr('class', 'sulfide-labels--pos')
-            // #RD START
-            .style('fill', color || 'black');
-            // #RD END
+          if (!isCrowded) {
+            const pos = g.append('text');
+            pos
+              .attr('dx', seqPos + 4 + text_distance)
+              .attr('dy', SULFIDE_POS - 55 - laneShift)
+              .text(() => `${el}`)
+              .attr('class', 'sulfide-labels--pos')
+              .style('fill', color || 'black');
+          }
         }
 
         const atom = g.append('circle');
@@ -1128,12 +1149,24 @@ function Visualization(props) {
           ? WINDOW_SPINE_START_POS + windowProportion * WINDOW_SPINE_WIDTH
           : SPINE_START_POS + seqProportion * SPINE_WIDTH;
 
-        const showLabel =
-          lastLabelPos === null ||
-          Math.abs(seqPos - lastLabelPos) >= AMINO_ACID_LABEL_MIN_GAP;
-        if (showLabel) {
-          lastLabelPos = seqPos;
-        }
+        // #RD OLD CODE
+        // const showLabel =
+        //   lastLabelPos === null ||
+        //   Math.abs(seqPos - lastLabelPos) >= AMINO_ACID_LABEL_MIN_GAP;
+        // if (showLabel) {
+        //   lastLabelPos = seqPos;
+        // }
+        // #RD END OLD CODE
+        // #RD START
+        // Same fix as the 'solid' branch above: the letter must always render
+        // (this is the branch W actually uses), only the position number is
+        // suppressed when two same-letter residues are too close together.
+        const isCrowded =
+          lastLabelPos !== null &&
+          Math.abs(seqPos - lastLabelPos) < AMINO_ACID_LABEL_MIN_GAP;
+        lastLabelPos = seqPos;
+        const letterStagger = isCrowded ? 8 : 0;
+        // #RD END
 
         const bond = g.append('line');
         bond
@@ -1148,26 +1181,29 @@ function Visualization(props) {
           .style('stroke', color || 'black');
           // #RD END
 
-        if (showLabel) {
+        {
+          // #RD OLD CODE
+          // if (showLabel) {
+          // #RD END OLD CODE
+          // #RD START
           const label = g.append('text');
           label
             .attr('dx', seqPos - 4)
-            .attr('dy', SULFIDE_POS + 60 + laneShift)
+            .attr('dy', SULFIDE_POS + 60 + laneShift + letterStagger)
             .text(() => `${symAmAcids}`)
             .attr('class', 'sulfide-labels')
-            // #RD START
             .style('fill', color || 'black');
-            // #RD END
+          // #RD END
 
-          const pos = g.append('text');
-          pos
-            .attr('dx', seqPos + 6 + text_distance)
-            .attr('dy', SULFIDE_POS + 65 + laneShift)
-            .text(() => `${el}`)
-            .attr('class', 'sulfide-labels--pos')
-            // #RD START
-            .style('fill', color || 'black');
-            // #RD END
+          if (!isCrowded) {
+            const pos = g.append('text');
+            pos
+              .attr('dx', seqPos + 6 + text_distance)
+              .attr('dy', SULFIDE_POS + 65 + laneShift)
+              .text(() => `${el}`)
+              .attr('class', 'sulfide-labels--pos')
+              .style('fill', color || 'black');
+          }
         }
 
         const atom = g.append('circle');
