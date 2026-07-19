@@ -7,6 +7,25 @@ import PropTypes from 'prop-types';
 import constants from '../../static/constants';
 import Legend from '../Legend';
 import ProteinWindow from './ProteinWindow';
+// #RD OLD CODE
+// import {
+//   AMINO_LABEL_CLUSTER_DISTANCE,
+//   AMINO_LABEL_MAX_LEVEL,
+//   assignLabelLevels,
+//   computeLabelLevelOffset
+// } from './labelPlacement';
+// #RD END OLD CODE
+// #RD START
+import {
+  AMINO_LABEL_FONT_SIZE,
+  AMINO_LABEL_HORIZONTAL_PADDING,
+  AMINO_LABEL_LANE_GAP,
+  AMINO_LABEL_BASE_OFFSET,
+  AMINO_LABEL_MAX_VISIBLE_LANES,
+  layoutAminoAcidLabels,
+  computeRequiredLabelSpace
+} from './labelPlacement';
+// #RD END
 
 import './index.scss';
 
@@ -147,6 +166,121 @@ function Visualization(props) {
   const SPINE_WIDTH = scaledWidth - scaleFactor * 2 * margin.left;
 
   const WINDOW_SPINE_WIDTH = initialWidth - 2 * margin.left;
+
+  // #RD START
+  // Builds ONE shared collision-aware label layout per side (above/below the
+  // spine) across ALL currently-selected amino acids for a given view. This is
+  // computed as plain data here (not inside the D3 drawing code) so the same
+  // result can size the SVG/container (see fullAminoAcidLayout/windowAminoAcidLayout
+  // below) and be handed to the D3 render step, guaranteeing both use identical
+  // positions/lanes. Re-running this is cheap (plain array math over at most a
+  // few hundred residue positions) and recalculates automatically on every
+  // render, so it responds to width/scale changes (responsive) and window-view
+  // changes without any extra memoization machinery.
+  const buildAminoAcidLabelLayout = (isWindowView) => {
+    const aboveLabels = [];
+    const belowLabels = [];
+
+    selectedAminoAcids.forEach((aminoAcid, aminoAcidLane) => {
+      const style =
+        AMINO_ACID_RENDER_STYLE[aminoAcid] || DEFAULT_AMINO_ACID_RENDER_STYLE;
+      const color =
+        SELECTED_AMINO_ACID_COLORS[
+          aminoAcidLane % SELECTED_AMINO_ACID_COLORS.length
+        ];
+      const freePositions = aminoAcids[aminoAcid]
+        ? aminoAcids[aminoAcid].free
+        : [];
+
+      let seq = freePositions.map((el) => parseInt(el, 10));
+      if (isWindowView) {
+        seq = seq.filter((pos) => pos >= windowStart && pos <= windowEnd);
+      }
+
+      seq.forEach((position) => {
+        const seqProportion = position / proteinLength;
+        const windowProportion =
+          (position - windowPos.start) / (windowPos.end - windowPos.start);
+        const x = isWindowView
+          ? WINDOW_SPINE_START_POS + windowProportion * WINDOW_SPINE_WIDTH
+          : SPINE_START_POS + seqProportion * SPINE_WIDTH;
+
+        const labelDescriptor = {
+          aminoAcid,
+          position,
+          x,
+          text: `${aminoAcid}${position}`,
+          color,
+          textDistance: style.textDistance
+        };
+
+        if (style.visualize === 'solid') {
+          aboveLabels.push(labelDescriptor);
+        } else {
+          belowLabels.push(labelDescriptor);
+        }
+      });
+    });
+
+    const layoutConfig = {
+      fontSize: AMINO_LABEL_FONT_SIZE,
+      horizontalPadding: AMINO_LABEL_HORIZONTAL_PADDING,
+      laneGap: AMINO_LABEL_LANE_GAP,
+      baseOffset: AMINO_LABEL_BASE_OFFSET
+    };
+    const aboveLayout = layoutAminoAcidLabels({
+      labels: aboveLabels,
+      side: 'above',
+      ...layoutConfig
+    });
+    const belowLayout = layoutAminoAcidLabels({
+      labels: belowLabels,
+      side: 'below',
+      ...layoutConfig
+    });
+
+    const requiredAboveSpace = computeRequiredLabelSpace(aboveLayout);
+    const requiredBelowSpace = computeRequiredLabelSpace(belowLayout);
+
+    const maxLanesAbove = aboveLayout.reduce(
+      (max, label) => Math.max(max, label.lane + 1),
+      0
+    );
+    const maxLanesBelow = belowLayout.reduce(
+      (max, label) => Math.max(max, label.lane + 1),
+      0
+    );
+    if (
+      maxLanesAbove > AMINO_LABEL_MAX_VISIBLE_LANES ||
+      maxLanesBelow > AMINO_LABEL_MAX_VISIBLE_LANES
+    ) {
+      // Informational only - lanes are never capped/truncated because of this;
+      // it just flags unusually dense selections during development.
+      console.warn(
+        `Visualization -> amino-acid label lanes (${maxLanesAbove} above, ${maxLanesBelow} below) exceed the typical expected maximum (${AMINO_LABEL_MAX_VISIBLE_LANES}); the SVG is expanded to fit them regardless.`
+      );
+    }
+
+    return { aboveLayout, belowLayout, requiredAboveSpace, requiredBelowSpace };
+  };
+
+  const fullAminoAcidLayout = buildAminoAcidLabelLayout(false);
+  const windowAminoAcidLayout = buildAminoAcidLabelLayout(true);
+
+  // Extra pixels needed, beyond the existing default margins, so the farthest
+  // above/below label lane isn't pushed past the SVG's own layout box - grows
+  // dynamically with however many lanes the current selection actually needs,
+  // instead of assuming a fixed small number of lanes.
+  const computeExtraVerticalSpace = (layout) => ({
+    extraTop: Math.max(0, layout.requiredAboveSpace - SULFIDE_POS),
+    extraBottom: Math.max(
+      0,
+      layout.requiredBelowSpace - (innerHeight - SULFIDE_POS)
+    )
+  });
+  const fullExtraSpace = computeExtraVerticalSpace(fullAminoAcidLayout);
+  const windowExtraSpace = computeExtraVerticalSpace(windowAminoAcidLayout);
+  // #RD END
 
   const glycoBonds = initialOptions[currSelection].disulfideBonds.map(
     (pair) => {
@@ -1004,225 +1138,359 @@ function Visualization(props) {
   // };
   // #RD END OLD CODE
 
-  // #RD START
-  // Extra vertical offset per selected-amino-acid "lane" (based on its index in
-  // selectedAminoAcids) so that when more than one letter is displayed at once they
-  // don't all stack their labels on the exact same line - previously every 'solid'
-  // letter (and every 'white' letter) rendered at an identical y, which is what
-  // caused heavy overlap near the C-terminus once multiple letters were selected.
-  // #RD OLD CODE
+  // #RD OLD CODE (superseded - see attachAminoAcidLabels() below)
+  // // Extra vertical offset per selected-amino-acid "lane" (based on its index in
+  // // selectedAminoAcids) so that when more than one letter is displayed at once they
+  // // don't all stack their labels on the exact same line - previously every 'solid'
+  // // letter (and every 'white' letter) rendered at an identical y, which is what
+  // // caused heavy overlap near the C-terminus once multiple letters were selected.
   // const AMINO_ACID_LANE_SPACING = 16;
-  // #RD END OLD CODE
-  // 16px wasn't enough separation to keep neighboring lanes' labels/leader lines
-  // from overlapping when residues landed close together; widened per feedback.
-  const AMINO_ACID_LANE_SPACING = 22;
-  // Minimum horizontal pixel gap required between two consecutive labels of the same
-  // amino acid before the later one's text is hidden; the atom marker itself is
-  // still always drawn, so no position is silently dropped from the visualization.
-  // #RD OLD CODE
+  // const AMINO_ACID_LANE_SPACING = 22;
+  // // Minimum horizontal pixel gap required between two consecutive labels of the same
+  // // amino acid before the later one's text is hidden; the atom marker itself is
+  // // still always drawn, so no position is silently dropped from the visualization.
   // const AMINO_ACID_LABEL_MIN_GAP = 14;
+  // const AMINO_ACID_LABEL_MIN_GAP = 18;
   // #RD END OLD CODE
-  // Bumped slightly alongside the larger lane spacing so same-letter decluttering
-  // stays visually proportionate to the wider lanes.
-  const AMINO_ACID_LABEL_MIN_GAP = 18;
+  // #RD START
+  // AMINO_ACID_LANE_SPACING/AMINO_ACID_LABEL_MIN_GAP (and the per-letter
+  // attachFreeAmAcids() below) are superseded: the per-selected-LETTER lane
+  // separation they provided is now subsumed by the shared, collision-aware
+  // layout computed once per side across ALL selected letters together (see
+  // buildAminoAcidLabelLayout() above and attachAminoAcidLabels() below).
+  // #RD END
 
-  const attachFreeAmAcids = (
-    g,
-    isWindowView,
-    freeAmAcids,
-    symAmAcids,
-    visualize,
-    text_distance = 0,
-    laneOffset = 0,
-    // #RD START
-    // Per-selection-slot color (see SELECTED_AMINO_ACID_COLORS) so each of the up
-    // to 4 chosen amino acids is visually distinguishable; falls back to black so
-    // any caller that doesn't pass one still renders as before.
-    color = null
-    // #RD END
-  ) => {
-    console.log(`Visualization -> attach Free ${symAmAcids}`);
-    let seq = freeAmAcids.map((el) => parseInt(el, 10));
-    if (isWindowView) {
-      seq = seq.filter((pos) => pos >= windowStart && pos <= windowEnd);
-    }
-    seq = [...seq].sort((a, b) => a - b);
-    // const scale = isWindowView ? windowScale : xScale;
+  // #RD OLD CODE (superseded - see attachAminoAcidLabels() below; kept for
+  // reference since git history for this line range spans several iterations)
+  // const attachFreeAmAcids = (
+//     g,
+//     isWindowView,
+//     freeAmAcids,
+//     symAmAcids,
+//     visualize,
+//     text_distance = 0,
+//     laneOffset = 0,
+//     // #RD START
+//     // Per-selection-slot color (see SELECTED_AMINO_ACID_COLORS) so each of the up
+//     // to 4 chosen amino acids is visually distinguishable; falls back to black so
+//     // any caller that doesn't pass one still renders as before.
+//     color = null
+//     // #RD END
+//   ) => {
+//     console.log(`Visualization -> attach Free ${symAmAcids}`);
+//     let seq = freeAmAcids.map((el) => parseInt(el, 10));
+//     if (isWindowView) {
+//       seq = seq.filter((pos) => pos >= windowStart && pos <= windowEnd);
+//     }
+//     seq = [...seq].sort((a, b) => a - b);
+//     // const scale = isWindowView ? windowScale : xScale;
+// 
+//     const laneShift = laneOffset * AMINO_ACID_LANE_SPACING;
+//     /* #RD OLD CODE
+//     let lastLabelPos = null;
+// 
+//     if (visualize === 'solid') {
+//       seq.forEach((el) => {
+//         let seqProportion = el / proteinLength;
+//         let windowProportion =
+//           (el - windowPos.start) / (windowPos.end - windowPos.start);
+//         let seqPos = isWindowView
+//           ? WINDOW_SPINE_START_POS + windowProportion * WINDOW_SPINE_WIDTH
+//           : SPINE_START_POS + seqProportion * SPINE_WIDTH;
+// 
+//         const isCrowded =
+//           lastLabelPos !== null &&
+//           Math.abs(seqPos - lastLabelPos) < AMINO_ACID_LABEL_MIN_GAP;
+//         lastLabelPos = seqPos;
+//         const letterStagger = isCrowded ? 8 : 0;
+// 
+//         const bond = g.append('line');
+//         bond
+//           .attr('x1', seqPos)
+//           .attr('y1', SULFIDE_POS - 20)
+//           .attr('x2', seqPos)
+//           .attr('y2', SULFIDE_POS - 50 - laneShift)
+//           .style('stroke', color || 'black');
+// 
+//         {
+//           const label = g.append('text');
+//           label
+//             .attr('dx', seqPos - 4)
+//             .attr('dy', SULFIDE_POS - 60 - laneShift - letterStagger)
+//             .text(() => `${symAmAcids}`)
+//             .attr('class', 'sulfide-labels')
+//             .style('fill', color || 'black');
+// 
+//           if (!isCrowded) {
+//             const pos = g.append('text');
+//             pos
+//               .attr('dx', seqPos + 4 + text_distance)
+//               .attr('dy', SULFIDE_POS - 55 - laneShift)
+//               .text(() => `${el}`)
+//               .attr('class', 'sulfide-labels--pos')
+//               .style('fill', color || 'black');
+//           }
+//         }
+// 
+//         const atom = g.append('circle');
+//         atom
+//           .attr('cx', seqPos)
+//           .attr('cy', SULFIDE_POS)
+//           .attr('r', CIRCLE_RADIUS - 2)
+//           .style('stroke', 'white')
+//           .style('fill', color || 'black');
+//       });
+//     } else {
+//       seq.forEach((el) => {
+//         let seqProportion = el / proteinLength;
+//         let windowProportion =
+//           (el - windowPos.start) / (windowPos.end - windowPos.start);
+//         let seqPos = isWindowView
+//           ? WINDOW_SPINE_START_POS + windowProportion * WINDOW_SPINE_WIDTH
+//           : SPINE_START_POS + seqProportion * SPINE_WIDTH;
+// 
+//         const isCrowded =
+//           lastLabelPos !== null &&
+//           Math.abs(seqPos - lastLabelPos) < AMINO_ACID_LABEL_MIN_GAP;
+//         lastLabelPos = seqPos;
+//         const letterStagger = isCrowded ? 8 : 0;
+// 
+//         const bond = g.append('line');
+//         bond
+//           .attr('x1', seqPos)
+//           .attr('y1', SULFIDE_POS + 20)
+//           .attr('x2', seqPos)
+//           .attr('y2', SULFIDE_POS + 50 + laneShift)
+//           .style('stroke', color || 'black');
+// 
+//         {
+//           const label = g.append('text');
+//           label
+//             .attr('dx', seqPos - 4)
+//             .attr('dy', SULFIDE_POS + 60 + laneShift + letterStagger)
+//             .text(() => `${symAmAcids}`)
+//             .attr('class', 'sulfide-labels')
+//             .style('fill', color || 'black');
+// 
+//           if (!isCrowded) {
+//             const pos = g.append('text');
+//             pos
+//               .attr('dx', seqPos + 6 + text_distance)
+//               .attr('dy', SULFIDE_POS + 65 + laneShift)
+//               .text(() => `${el}`)
+//               .attr('class', 'sulfide-labels--pos')
+//               .style('fill', color || 'black');
+//           }
+//         }
+// 
+//         const atom = g.append('circle');
+//         atom
+//           .attr('cx', seqPos)
+//           .attr('cy', SULFIDE_POS)
+//           .attr('r', CIRCLE_RADIUS - 2)
+//           .style('stroke', color || 'black')
+//           .style('fill', 'white');
+//       });
+//     }
+//     #RD END OLD CODE */
+//     // #RD START
+//     // Root cause of the omitted-label bug: the old "isCrowded" check decided
+//     // whether to draw the letter/position AT ALL, so crowded residues (e.g.
+//     // Q9H5I5's second W at position 137 in the full-length view) silently lost
+//     // their letter even though the connector line/marker still rendered. Labels
+//     // must never be dropped - every selected position gets a connector, a letter,
+//     // and a position number. Dense clusters are instead staggered onto increasing
+//     // vertical "levels" via assignLabelLevels()/computeLabelLevelOffset()
+//     // (labelPlacement.js), which is shared by both this full-length view call and
+//     // the zoomed-window call (each passes its own already-scaled pixel positions).
+//     //
+//     // Positions are converted to pixel x-coordinates first (matches how crowding
+//     // actually looks on screen), then every position in this lane gets a level via
+//     // one greedy pass, before anything is drawn.
+//     const positions = seq.map((el) => {
+//       const seqProportion = el / proteinLength;
+//       const windowProportion =
+//         (el - windowPos.start) / (windowPos.end - windowPos.start);
+//       const seqPos = isWindowView
+//         ? WINDOW_SPINE_START_POS + windowProportion * WINDOW_SPINE_WIDTH
+//         : SPINE_START_POS + seqProportion * SPINE_WIDTH;
+//       return { el, seqPos };
+//     });
+//     const levels = assignLabelLevels(
+//       positions.map((p) => p.seqPos),
+//       AMINO_LABEL_CLUSTER_DISTANCE,
+//       AMINO_LABEL_MAX_LEVEL
+//     );
+// 
+//     if (visualize === 'solid') {
+//       positions.forEach(({ el, seqPos }, idx) => {
+//         const clusterShift = computeLabelLevelOffset(levels[idx]);
+// 
+//         const bond = g.append('line');
+//         bond
+//           .attr('x1', seqPos)
+//           .attr('y1', SULFIDE_POS - 20)
+//           .attr('x2', seqPos)
+//           .attr('y2', SULFIDE_POS - 50 - laneShift - clusterShift)
+//           .style('stroke', color || 'black');
+// 
+//         // Letter and position number are always drawn together (never
+//         // conditional), both shifted by the same clusterShift so they stay
+//         // visually associated with each other and with their connector line.
+//         const label = g.append('text');
+//         label
+//           .attr('dx', seqPos - 4)
+//           .attr('dy', SULFIDE_POS - 60 - laneShift - clusterShift)
+//           .text(() => `${symAmAcids}`)
+//           .attr('class', 'sulfide-labels')
+//           .style('fill', color || 'black');
+// 
+//         const pos = g.append('text');
+//         pos
+//           .attr('dx', seqPos + 4 + text_distance)
+//           .attr('dy', SULFIDE_POS - 55 - laneShift - clusterShift)
+//           .text(() => `${el}`)
+//           .attr('class', 'sulfide-labels--pos')
+//           .style('fill', color || 'black');
+// 
+//         const atom = g.append('circle');
+//         atom
+//           .attr('cx', seqPos)
+//           .attr('cy', SULFIDE_POS)
+//           .attr('r', CIRCLE_RADIUS - 2)
+//           .style('stroke', 'white')
+//           .style('fill', color || 'black');
+//       });
+//     } else {
+//       positions.forEach(({ el, seqPos }, idx) => {
+//         const clusterShift = computeLabelLevelOffset(levels[idx]);
+// 
+//         const bond = g.append('line');
+//         bond
+//           .attr('x1', seqPos)
+//           .attr('y1', SULFIDE_POS + 20)
+//           .attr('x2', seqPos)
+//           .attr('y2', SULFIDE_POS + 50 + laneShift + clusterShift)
+//           .style('stroke', color || 'black');
+// 
+//         const label = g.append('text');
+//         label
+//           .attr('dx', seqPos - 4)
+//           .attr('dy', SULFIDE_POS + 60 + laneShift + clusterShift)
+//           .text(() => `${symAmAcids}`)
+//           .attr('class', 'sulfide-labels')
+//           .style('fill', color || 'black');
+// 
+//         const pos = g.append('text');
+//         pos
+//           .attr('dx', seqPos + 6 + text_distance)
+//           .attr('dy', SULFIDE_POS + 65 + laneShift + clusterShift)
+//           .text(() => `${el}`)
+//           .attr('class', 'sulfide-labels--pos')
+//           .style('fill', color || 'black');
+// 
+//         const atom = g.append('circle');
+//         atom
+//           .attr('cx', seqPos)
+//           .attr('cy', SULFIDE_POS)
+//           .attr('r', CIRCLE_RADIUS - 2)
+//           .style('stroke', color || 'black')
+//           .style('fill', 'white');
+//       });
+//     }
+//     // #RD END
+//   };
+//   // #RD END
 
-    const laneShift = laneOffset * AMINO_ACID_LANE_SPACING;
-    let lastLabelPos = null;
+  // #RD START
+  // Root cause of the clutter reported after the previous (level-based) fix: that
+  // version staggered each selected LETTER's own crowded residues independently,
+  // using only a fixed residue-to-residue pixel gap to decide when to bump the
+  // level - it never considered (a) other selected letters' labels landing at the
+  // same x, or (b) how wide the rendered "G19"/"K2750"/"W137" text actually is.
+  // So two different letters could still share a line and visually collide, and a
+  // short "G9" label could still overlap a much wider "K2750" label whose center
+  // happened to be just far enough away by the old fixed-gap rule.
+  //
+  // This replaces per-letter leveling with true collision-aware lane packing
+  // across ALL selected amino acids on a given side at once (attachAminoAcidLabels
+  // renders one side's already-computed layout; buildAminoAcidLabelLayout, above,
+  // is what actually runs every selected letter's positions through ONE shared
+  // layoutAminoAcidLabels() call per side). Every label is still always rendered -
+  // lane packing only changes WHERE a label sits, never WHETHER it's drawn.
+  //
+  // direction is 'above' or 'below', matching whichever array
+  // buildAminoAcidLabelLayout() put a given amino acid's positions into (based on
+  // its AMINO_ACID_RENDER_STYLE 'solid'/'white' setting) - each solid-style letter
+  // has always rendered above the spine and each hollow-style letter below it, so
+  // that convention is preserved here, just decoupled from the drawing math.
+  const attachAminoAcidLabels = (g, layout, direction) => {
+    layout.forEach(({ x, y, color, aminoAcid, position, textDistance }) => {
+      const bond = g.append('line');
+      const label = g.append('text');
+      const pos = g.append('text');
+      const atom = g.append('circle');
 
-    if (visualize === 'solid') {
-      seq.forEach((el) => {
-        let seqProportion = el / proteinLength;
-        let windowProportion =
-          (el - windowPos.start) / (windowPos.end - windowPos.start);
-        let seqPos = isWindowView
-          ? WINDOW_SPINE_START_POS + windowProportion * WINDOW_SPINE_WIDTH
-          : SPINE_START_POS + seqProportion * SPINE_WIDTH;
-
-        // #RD OLD CODE
-        // const showLabel =
-        //   lastLabelPos === null ||
-        //   Math.abs(seqPos - lastLabelPos) >= AMINO_ACID_LABEL_MIN_GAP;
-        // if (showLabel) {
-        //   lastLabelPos = seqPos;
-        // }
-        // #RD END OLD CODE
-        // #RD START
-        // Bug: the amino-acid LETTER was gated behind the same "too close to the
-        // previous one" check as the position NUMBER, so when two same-letter
-        // residues landed within AMINO_ACID_LABEL_MIN_GAP px, the letter was
-        // dropped entirely even though its connector line/marker (below, outside
-        // this check) were always drawn - e.g. Q9H5I5's second W at position 137.
-        // Fix: the letter is now always drawn; only the position number is
-        // suppressed when crowded, and the letter gets a small extra offset
-        // instead so it doesn't sit exactly on top of the previous one.
-        const isCrowded =
-          lastLabelPos !== null &&
-          Math.abs(seqPos - lastLabelPos) < AMINO_ACID_LABEL_MIN_GAP;
-        lastLabelPos = seqPos;
-        const letterStagger = isCrowded ? 8 : 0;
-        // #RD END
-
-        const bond = g.append('line');
+      if (direction === 'above') {
         bond
-          .attr('x1', seqPos)
+          .attr('x1', x)
           .attr('y1', SULFIDE_POS - 20)
-          .attr('x2', seqPos)
-          .attr('y2', SULFIDE_POS - 50 - laneShift)
-          // #RD OLD CODE
-          // .style('stroke', 'black');
-          // #RD END OLD CODE
-          // #RD START
+          .attr('x2', x)
+          .attr('y2', SULFIDE_POS - y)
           .style('stroke', color || 'black');
-          // #RD END
 
-        {
-          // #RD OLD CODE
-          // if (showLabel) {
-          // #RD END OLD CODE
-          // #RD START
-          // Letter is unconditional now - always rendered alongside its line/marker.
-          const label = g.append('text');
-          label
-            .attr('dx', seqPos - 4)
-            .attr('dy', SULFIDE_POS - 60 - laneShift - letterStagger)
-            .text(() => `${symAmAcids}`)
-            .attr('class', 'sulfide-labels')
-            .style('fill', color || 'black');
-          // #RD END
+        // Letter and position number are always drawn together (never
+        // conditional) and always at the SAME x as their connector line.
+        label
+          .attr('dx', x - 4)
+          .attr('dy', SULFIDE_POS - (y + 10))
+          .text(() => aminoAcid)
+          .attr('class', 'amino-acid-label')
+          .style('fill', color || 'black');
 
-          if (!isCrowded) {
-            const pos = g.append('text');
-            pos
-              .attr('dx', seqPos + 4 + text_distance)
-              .attr('dy', SULFIDE_POS - 55 - laneShift)
-              .text(() => `${el}`)
-              .attr('class', 'sulfide-labels--pos')
-              .style('fill', color || 'black');
-          }
-        }
+        pos
+          .attr('dx', x + 4 + textDistance)
+          .attr('dy', SULFIDE_POS - (y + 5))
+          .text(() => position)
+          .attr('class', 'amino-acid-label--pos')
+          .style('fill', color || 'black');
 
-        const atom = g.append('circle');
         atom
-          .attr('cx', seqPos)
+          .attr('cx', x)
           .attr('cy', SULFIDE_POS)
           .attr('r', CIRCLE_RADIUS - 2)
           .style('stroke', 'white')
-          // #RD OLD CODE
-          // .style('fill', 'black');
-          // #RD END OLD CODE
-          // #RD START
-          // 'solid' marker stays solid (filled circle, white stroke) - only the
-          // fill color changes per amino-acid slot, preserving the
-          // solid-vs-hollow shape distinction from AMINO_ACID_RENDER_STYLE.
           .style('fill', color || 'black');
-          // #RD END
-      });
-    } else {
-      seq.forEach((el) => {
-        let seqProportion = el / proteinLength;
-        let windowProportion =
-          (el - windowPos.start) / (windowPos.end - windowPos.start);
-        let seqPos = isWindowView
-          ? WINDOW_SPINE_START_POS + windowProportion * WINDOW_SPINE_WIDTH
-          : SPINE_START_POS + seqProportion * SPINE_WIDTH;
-
-        // #RD OLD CODE
-        // const showLabel =
-        //   lastLabelPos === null ||
-        //   Math.abs(seqPos - lastLabelPos) >= AMINO_ACID_LABEL_MIN_GAP;
-        // if (showLabel) {
-        //   lastLabelPos = seqPos;
-        // }
-        // #RD END OLD CODE
-        // #RD START
-        // Same fix as the 'solid' branch above: the letter must always render
-        // (this is the branch W actually uses), only the position number is
-        // suppressed when two same-letter residues are too close together.
-        const isCrowded =
-          lastLabelPos !== null &&
-          Math.abs(seqPos - lastLabelPos) < AMINO_ACID_LABEL_MIN_GAP;
-        lastLabelPos = seqPos;
-        const letterStagger = isCrowded ? 8 : 0;
-        // #RD END
-
-        const bond = g.append('line');
+      } else {
         bond
-          .attr('x1', seqPos)
+          .attr('x1', x)
           .attr('y1', SULFIDE_POS + 20)
-          .attr('x2', seqPos)
-          .attr('y2', SULFIDE_POS + 50 + laneShift)
-          // #RD OLD CODE
-          // .style('stroke', 'black');
-          // #RD END OLD CODE
-          // #RD START
+          .attr('x2', x)
+          .attr('y2', SULFIDE_POS + y)
           .style('stroke', color || 'black');
-          // #RD END
 
-        {
-          // #RD OLD CODE
-          // if (showLabel) {
-          // #RD END OLD CODE
-          // #RD START
-          const label = g.append('text');
-          label
-            .attr('dx', seqPos - 4)
-            .attr('dy', SULFIDE_POS + 60 + laneShift + letterStagger)
-            .text(() => `${symAmAcids}`)
-            .attr('class', 'sulfide-labels')
-            .style('fill', color || 'black');
-          // #RD END
+        label
+          .attr('dx', x - 4)
+          .attr('dy', SULFIDE_POS + (y + 10))
+          .text(() => aminoAcid)
+          .attr('class', 'amino-acid-label')
+          .style('fill', color || 'black');
 
-          if (!isCrowded) {
-            const pos = g.append('text');
-            pos
-              .attr('dx', seqPos + 6 + text_distance)
-              .attr('dy', SULFIDE_POS + 65 + laneShift)
-              .text(() => `${el}`)
-              .attr('class', 'sulfide-labels--pos')
-              .style('fill', color || 'black');
-          }
-        }
+        pos
+          .attr('dx', x + 6 + textDistance)
+          .attr('dy', SULFIDE_POS + (y + 15))
+          .text(() => position)
+          .attr('class', 'amino-acid-label--pos')
+          .style('fill', color || 'black');
 
-        const atom = g.append('circle');
         atom
-          .attr('cx', seqPos)
+          .attr('cx', x)
           .attr('cy', SULFIDE_POS)
           .attr('r', CIRCLE_RADIUS - 2)
-          // #RD OLD CODE
-          // .style('stroke', 'black')
-          // #RD END OLD CODE
-          // #RD START
-          // 'white'/hollow marker stays hollow (white fill) - only the ring
-          // (stroke) color changes per amino-acid slot, preserving the
-          // solid-vs-hollow shape distinction from AMINO_ACID_RENDER_STYLE.
           .style('stroke', color || 'black')
-          // #RD END
           .style('fill', 'white');
-      });
-    }
+      }
+    });
   };
   // #RD END
 
@@ -1313,7 +1581,17 @@ function Visualization(props) {
     svg.style('background-color', 'white');
 
     const translateX = isWindowView ? initialWidth / 15 : margin.left;
-    const translateY = isWindowView ? initialWidth / 15 : margin.top;
+    // #RD OLD CODE
+    // const translateY = isWindowView ? initialWidth / 15 : margin.top;
+    // #RD END OLD CODE
+    // #RD START
+    // Shift the whole drawing group down by extraTop when the current amino-acid
+    // label selection needs more room above the spine than the default margin
+    // provides, so dense selections get real reserved layout space (not just
+    // overflow:visible bleed) instead of a fixed height that assumes few lanes.
+    const { extraTop } = isWindowView ? windowExtraSpace : fullExtraSpace;
+    const translateY = (isWindowView ? initialWidth / 15 : margin.top) + extraTop;
+    // #RD END
 
     const g = svg.append('g');
     g.attr('transform', `translate(${translateX}, ${translateY})`);
@@ -1359,36 +1637,39 @@ function Visualization(props) {
     //   attachFreeAmAcids(g, isWindowView, freeW, 'W', 'white', 5);
     // }
     // #RD END OLD CODE
+    // #RD OLD CODE (superseded - see below)
+    // selectedAminoAcids.forEach((aminoAcid, aminoAcidLane) => {
+    //   const style =
+    //     AMINO_ACID_RENDER_STYLE[aminoAcid] || DEFAULT_AMINO_ACID_RENDER_STYLE;
+    //   const freePositions = aminoAcids[aminoAcid]
+    //     ? aminoAcids[aminoAcid].free
+    //     : [];
+    //   const aminoAcidColor =
+    //     SELECTED_AMINO_ACID_COLORS[
+    //       aminoAcidLane % SELECTED_AMINO_ACID_COLORS.length
+    //     ];
+    //   attachFreeAmAcids(
+    //     g,
+    //     isWindowView,
+    //     freePositions,
+    //     aminoAcid,
+    //     style.visualize,
+    //     style.textDistance,
+    //     aminoAcidLane,
+    //     aminoAcidColor
+    //   );
+    // });
+    // #RD END OLD CODE
     // #RD START
-    selectedAminoAcids.forEach((aminoAcid, aminoAcidLane) => {
-      const style =
-        AMINO_ACID_RENDER_STYLE[aminoAcid] || DEFAULT_AMINO_ACID_RENDER_STYLE;
-      const freePositions = aminoAcids[aminoAcid]
-        ? aminoAcids[aminoAcid].free
-        : [];
-      // #RD START
-      // Stable color by selection slot (1st/2nd/3rd/4th chosen letter), not by
-      // letter identity, so re-selecting the same amino acid keeps the same color
-      // as long as it stays in the same slot; modulo guards against running out of
-      // colors if MAX_SELECTED_AMINO_ACIDS is ever raised above the palette length.
-      const aminoAcidColor =
-        SELECTED_AMINO_ACID_COLORS[
-          aminoAcidLane % SELECTED_AMINO_ACID_COLORS.length
-        ];
-      // #RD END
-      attachFreeAmAcids(
-        g,
-        isWindowView,
-        freePositions,
-        aminoAcid,
-        style.visualize,
-        style.textDistance,
-        aminoAcidLane,
-        // #RD START
-        aminoAcidColor
-        // #RD END
-      );
-    });
+    // Each selected amino acid's positions were already merged into one shared,
+    // collision-aware layout per side by buildAminoAcidLabelLayout() (called once
+    // per render, above) - draw straight from that instead of laying labels out
+    // one selected letter at a time.
+    const aminoAcidLayout = isWindowView
+      ? windowAminoAcidLayout
+      : fullAminoAcidLayout;
+    attachAminoAcidLabels(g, aminoAcidLayout.aboveLayout, 'above');
+    attachAminoAcidLabels(g, aminoAcidLayout.belowLayout, 'below');
     // #RD END
     if (showPhosphoserine) {
       attachPhosphorylation(g, isWindowView, phosphoserine, '#FDCC04');
@@ -1463,7 +1744,15 @@ function Visualization(props) {
         style={
           fullScale ? {} : { marginLeft: (scaleFactor - 1) * window.innerWidth }
         }
-        height={`${height}`}
+        // #RD OLD CODE
+        // height={`${height}`}
+        // #RD END OLD CODE
+        // #RD START
+        // Grows past the default height when the current amino-acid label
+        // selection needs more lanes than the default margins provide room for,
+        // instead of assuming a fixed height sized for only a few lanes.
+        height={`${height + fullExtraSpace.extraTop + fullExtraSpace.extraBottom}`}
+        // #RD END
         width={`${
           fullScale
             ? proteinLength + margin.left * 2
@@ -1481,7 +1770,14 @@ function Visualization(props) {
   const windowSvg = Number.isInteger(currSelection) ? (
     <div className="windowSvg--wrapper">
       <svg
-        height={`${height}`}
+        // #RD OLD CODE
+        // height={`${height}`}
+        // #RD END OLD CODE
+        // #RD START
+        height={`${
+          height + windowExtraSpace.extraTop + windowExtraSpace.extraBottom
+        }`}
+        // #RD END
         width={`${initialWidth}`}
         ref={windowSvgRef}
         id="windowSvg"

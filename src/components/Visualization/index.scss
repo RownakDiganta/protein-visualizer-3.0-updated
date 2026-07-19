@@ -10,6 +10,31 @@
   }
 }
 
+// #RD START
+// Amino-acid selection labels get their own classes (not .sulfide-labels, which
+// disulfide/sequon/cysteine labels also use) so this halo only affects the
+// amino-acid lane-packing labels and doesn't change any other existing feature's
+// appearance. The white stroke drawn behind the text (paint-order: stroke) keeps
+// letters/numbers readable even when a connector line or another nearby label
+// sits behind them in a dense, multi-lane layout.
+.amino-acid-label {
+  font-size: 1.0rem;
+  font-weight: bold;
+  paint-order: stroke;
+  stroke: white;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  &--pos {
+    font-size: 0.75rem;
+    font-weight: bold;
+    paint-order: stroke;
+    stroke: white;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+}
+// #RD END
+
 .glyco-labels {
   font-size: 1.0rem;
   font-weight: bold;
